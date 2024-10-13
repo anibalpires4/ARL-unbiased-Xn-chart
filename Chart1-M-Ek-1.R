@@ -1,12 +1,11 @@
-# Chart 1: M(lambda)/Ek(mu=1)/1 -> rho=lambda
+# Chart 1: M/Ek/1
 
 # Obtaining ARL without randomization
-
-inar1.arl <- function(L, U, lambda, beta, k) {
+inar1.arl <- function(L, U, rho, beta, k) {
   i    <- L:U
   d    <- U-L+1
   qij_ <- function(i, j) {
-    if(i<=1) dnbinom(j, k, k/(k+lambda)) else dnbinom(j-i+1, k, k/(k+lambda))
+    if(i<=1) dnbinom(j, k, k/(k+rho)) else dnbinom(j-i+1, k, k/(k+rho))
   }
   qij  <- Vectorize(qij_)
   Q    <- outer(i, i, qij)
@@ -19,12 +18,11 @@ inar1.arl <- function(L, U, lambda, beta, k) {
 
 
 # Obtaining ARL with randomization
-
-inar1.arl2 <- function(L, U, gL, gU, lambda, beta, k) {
+inar1.arl2 <- function(L, U, gL, gU, rho, beta, k) {
   i     <- L:U
   d     <- U-L+1
   qij_  <- function(i, j) {
-    if(i<=1) dnbinom(j, k, k/(k+lambda)) else dnbinom(j-i+1, k, k/(k+lambda))
+    if(i<=1) dnbinom(j, k, k/(k+rho)) else dnbinom(j-i+1, k, k/(k+rho))
   }
   qij   <- Vectorize(qij_)
   Q     <- outer(i, i, qij)
@@ -33,26 +31,21 @@ inar1.arl2 <- function(L, U, gL, gU, lambda, beta, k) {
   one   <- rep(1, d)
   I     <- diag(1, d)
   cARL  <- solve(I-Q, one)
-  #DP    <- dnbinom(i, 100, 100/(100+lambda))
-  #DP[1] <- (1-gL) * DP[1]
-  #DP[d] <- (1-gU) * DP[d]
-  #ARL   <- 1 + sum( DP * cARL )
-  #ARL
+  
   cARL[1]
 }
 
 
 # INAR(1) w/o randomization, L given, U searched for
-
-inar1.get.U <- function(L, ARL0, lambda, beta, k, OUTPUT=FALSE) {
+inar1.get.U <- function(L, ARL0, rho, beta, k, OUTPUT=FALSE) {
   U   <- 1
-  ARL <- inar1.arl(L, U, lambda, beta, k)
+  ARL <- inar1.arl(L, U, rho, beta, k)
   if ( OUTPUT ) cat(paste(U, "\t", ARL, "\t", ARL0, "\n"))
   dARL <- 1
   while ( ARL < ARL0 & dARL > 1e-6 ) {
     ARL.old <- ARL
     U   <- U + 1
-    ARL <- inar1.arl(L, U, lambda, beta, k)
+    ARL <- inar1.arl(L, U, rho, beta, k)
     dARL <- abs(ARL - ARL.old)
     if ( OUTPUT ) cat(paste(U, "\t", ARL, "\t", ARL0, "\n"))
   }
@@ -61,23 +54,22 @@ inar1.get.U <- function(L, ARL0, lambda, beta, k, OUTPUT=FALSE) {
 }
 
 
-# INAR(1) w/o randomization, (L,U) with minimal L so that ARL = ARL(lambda) is increasing at given lambda
-
-inar1.get.UL <- function(ARL0, lambda, beta, k, OUTPUT=FALSE) {
+# INAR(1) w/o randomization, (L,U) with minimal L so that ARL = ARL(rho) is increasing at given rho
+inar1.get.UL <- function(ARL0, rho, beta, k, OUTPUT=FALSE) {
   L <- 0
-  U <- inar1.get.U(L, ARL0, lambda, beta, k, OUTPUT=OUTPUT)
-  lARL <- inar1.arl(L, U, lambda-1e-3, beta, k)
-  ARL  <- inar1.arl(L, U, lambda, beta, k)
+  U <- inar1.get.U(L, ARL0, rho, beta, k, OUTPUT=OUTPUT)
+  lARL <- inar1.arl(L, U, rho-1e-3, beta, k)
+  ARL  <- inar1.arl(L, U, rho, beta, k)
   while ( ARL < lARL ) {
     L    <- L + 1
-    U    <- inar1.get.U(L, ARL0, lambda, beta, k, OUTPUT=OUTPUT)
+    U    <- inar1.get.U(L, ARL0, rho, beta, k, OUTPUT=OUTPUT)
     if ( is.na(U) ) {
       L    <- L - 1
-      U    <- inar1.get.U(L, ARL0, lambda, beta, k, OUTPUT=OUTPUT)
+      U    <- inar1.get.U(L, ARL0, rho, beta, k, OUTPUT=OUTPUT)
       break
     }
-    lARL <- inar1.arl(L, U, lambda-1e-2, beta, k)
-    ARL  <- inar1.arl(L, U, lambda, beta, k)
+    lARL <- inar1.arl(L, U, rho-1e-2, beta, k)
+    ARL  <- inar1.arl(L, U, rho, beta, k)
     if ( OUTPUT ) cat(paste(L, "\t", U, "\t", lARL, "\t", ARL, "\t\t", ARL0, "\n"))
   }
   c(L, U)
@@ -85,10 +77,9 @@ inar1.get.UL <- function(ARL0, lambda, beta, k, OUTPUT=FALSE) {
 
 
 # INAR(1) w/ randomization, L, U, gL given, gU searched for
-
-inar1.get.gU <- function(L, U, gL, ARL0, lambda, beta, k, OUTPUT=FALSE) {
-  minARL <- inar1.arl2(L, U, gL, 1, lambda, beta, k)
-  maxARL <- inar1.arl2(L, U, gL, 0, lambda, beta, k)
+inar1.get.gU <- function(L, U, gL, ARL0, rho, beta, k, OUTPUT=FALSE) {
+  minARL <- inar1.arl2(L, U, gL, 1, rho, beta, k)
+  maxARL <- inar1.arl2(L, U, gL, 0, rho, beta, k)
   if ( OUTPUT ) cat(paste(minARL, "\t", maxARL, "\t\t", ARL0, "\n"))
   if ( minARL < ARL0 & ARL0 < maxARL ) {
     # starting values
@@ -98,11 +89,11 @@ inar1.get.gU <- function(L, U, gL, ARL0, lambda, beta, k, OUTPUT=FALSE) {
       gU2  <- gU1
       ARL2 <- ARL1
       gU1  <- gU1 - .1
-      ARL1 <- inar1.arl2(L, U, gL, gU1, lambda, beta, k)
+      ARL1 <- inar1.arl2(L, U, gL, gU1, rho, beta, k)
     }
     if ( gU1 < .05 ) {
       gU1  <- 0.05
-      ARL1 <- inar1.arl2(L, U, gL, gU1, lambda, beta, k)
+      ARL1 <- inar1.arl2(L, U, gL, gU1, rho, beta, k)
     }
     # secant rule
     gU.error <- 1
@@ -111,7 +102,7 @@ inar1.get.gU <- function(L, U, gL, ARL0, lambda, beta, k, OUTPUT=FALSE) {
       gU3  <- gU1 + (ARL0 - ARL1)/(ARL2 - ARL1)*(gU2 - gU1)
       gU3 <- max(0, gU3)
       gU3 <- min(1, gU3)
-      ARL3 <- inar1.arl2(L, U, gL, gU3, lambda, beta, k)
+      ARL3 <- inar1.arl2(L, U, gL, gU3, rho, beta, k)
       if ( OUTPUT ) cat(paste(gU3, "\t", ARL3, "\t\t", ARL0, "\n"))
       gU1 <- gU2; gU2 <- gU3
       ARL1 <- ARL2; ARL2 <- ARL3
@@ -128,10 +119,9 @@ inar1.get.gU <- function(L, U, gL, ARL0, lambda, beta, k, OUTPUT=FALSE) {
 
 
 # INAR(1) w/ randomization, L, U, gU given, gL searched for
-
-inar1.get.gL <- function(L, U, gU, ARL0, lambda, beta, k, OUTPUT=FALSE) {
-  minARL <- inar1.arl2(L, U, 1, gU, lambda, beta, k)
-  maxARL <- inar1.arl2(L, U, 0, gU, lambda, beta, k)
+inar1.get.gL <- function(L, U, gU, ARL0, rho, beta, k, OUTPUT=FALSE) {
+  minARL <- inar1.arl2(L, U, 1, gU, rho, beta, k)
+  maxARL <- inar1.arl2(L, U, 0, gU, rho, beta, k)
   if ( OUTPUT ) cat(paste(minARL, "\t", maxARL, "\t\t", ARL0, "\n"))
   if ( minARL < ARL0 & ARL0 < maxARL ) {
     # starting values
@@ -141,11 +131,11 @@ inar1.get.gL <- function(L, U, gU, ARL0, lambda, beta, k, OUTPUT=FALSE) {
       gL2  <- gL1
       ARL2 <- ARL1
       gL1  <- gL1 - .1
-      ARL1 <- inar1.arl2(L, U, gL1, gU, lambda, beta, k)
+      ARL1 <- inar1.arl2(L, U, gL1, gU, rho, beta, k)
     }
     if ( gL1 < 0.05 ) {
       gL1  <- 0.05
-      ARL1 <- inar1.arl2(L, U, gL1, gU, lambda, beta, k)
+      ARL1 <- inar1.arl2(L, U, gL1, gU, rho, beta, k)
     }
     # secant rule
     gL.error <- 1
@@ -154,7 +144,7 @@ inar1.get.gL <- function(L, U, gU, ARL0, lambda, beta, k, OUTPUT=FALSE) {
       gL3  <- gL1 + (ARL0 - ARL1)/(ARL2 - ARL1)*(gL2 - gL1)
       gL3 <- max(0, gL3)
       gL3 <- min(1, gL3)
-      ARL3 <- inar1.arl2(L, U, gL3, gU, lambda, beta, k)
+      ARL3 <- inar1.arl2(L, U, gL3, gU, rho, beta, k)
       if ( OUTPUT ) cat(paste(gL3, "\t", ARL3, "\t\t", ARL0, "\n"))
       gL1 <- gL2; gL2 <- gL3
       ARL1 <- ARL2; ARL2 <- ARL3
@@ -171,16 +161,16 @@ inar1.get.gL <- function(L, U, gU, ARL0, lambda, beta, k, OUTPUT=FALSE) {
 
 
 # some helpers
-inar1.min.gL <- function(L, U, ARL0, lambda, beta, k, OUTPUT=FALSE) {
+inar1.min.gL <- function(L, U, ARL0, rho, beta, k, OUTPUT=FALSE) {
   gL  <- 0
-  gU  <- inar1.get.gU(L, U, gL, ARL0, lambda, beta, k, OUTPUT=OUTPUT)
+  gU  <- inar1.get.gU(L, U, gL, ARL0, rho, beta, k, OUTPUT=OUTPUT)
   if ( -1.5 < gU & gU < 0 ) gL <- NA
   if ( gU < -1.5 ) {
     for ( dig in 1:9 ) {
       if ( dig %% 2 == 1 ) {
         while ( gU < -1.5 & gL < 1-1e-10 ) {
           gL <- gL + 10^(-dig)
-          gU <- inar1.get.gU(L, U, gL, ARL0, lambda, beta, k, OUTPUT=OUTPUT)
+          gU <- inar1.get.gU(L, U, gL, ARL0, rho, beta, k, OUTPUT=OUTPUT)
           if ( OUTPUT ) cat(paste("gL =", gL, ",\tgU =", gU, "\n"))
         }
         if ( gU < -1.5 ) {
@@ -190,7 +180,7 @@ inar1.min.gL <- function(L, U, ARL0, lambda, beta, k, OUTPUT=FALSE) {
       } else {
         while ( -1.5 < gU  &  gL > 1e-10 ) {
           gL <- gL - 10^(-dig)
-          gU <- inar1.get.gU(L, U, gL, ARL0, lambda, beta, k, OUTPUT=OUTPUT)
+          gU <- inar1.get.gU(L, U, gL, ARL0, rho, beta, k, OUTPUT=OUTPUT)
           if ( OUTPUT ) cat(paste("gL =", gL, ",\tgU =", gU, "\n"))
         }
       }
@@ -200,16 +190,16 @@ inar1.min.gL <- function(L, U, ARL0, lambda, beta, k, OUTPUT=FALSE) {
 }
 
 
-inar1.min.gU <- function(L, U, ARL0, lambda, beta, k, OUTPUT=FALSE) {
+inar1.min.gU <- function(L, U, ARL0, rho, beta, k, OUTPUT=FALSE) {
   gU  <- 0
-  gL  <- inar1.get.gL(L, U, gU, ARL0, lambda, beta, k, OUTPUT=OUTPUT)
+  gL  <- inar1.get.gL(L, U, gU, ARL0, rho, beta, k, OUTPUT=OUTPUT)
   if ( -1.5 < gL & gL < 0 ) gU <- NA
   if ( gL < -1.5 ) {
     for ( dig in 1:9 ) {
       if ( dig %% 2 == 1 ) {
         while ( gL < -1.5 & gU < 1 ) {
           gU <- gU + 10^(-dig)
-          gL <- inar1.get.gL(L, U, gU, ARL0, lambda, beta, k, OUTPUT=FALSE)
+          gL <- inar1.get.gL(L, U, gU, ARL0, rho, beta, k, OUTPUT=FALSE)
           if ( OUTPUT ) cat(paste("gU =", gU, ",\tgL =", gL, "\n"))
         }
         if ( gL < -1.5 ) {
@@ -219,7 +209,7 @@ inar1.min.gU <- function(L, U, ARL0, lambda, beta, k, OUTPUT=FALSE) {
       } else {
         while ( -1.5 < gL & gU > 0 ) {
           gU <- gU - 10^(-dig)
-          gL <- inar1.get.gL(L, U, gU, ARL0, lambda, beta, k, OUTPUT=FALSE)
+          gL <- inar1.get.gL(L, U, gU, ARL0, rho, beta, k, OUTPUT=FALSE)
           if ( OUTPUT ) cat(paste("gU =", gU, ",\tgL =", gL, "\n"))
         }
       }
@@ -231,26 +221,25 @@ inar1.min.gU <- function(L, U, ARL0, lambda, beta, k, OUTPUT=FALSE) {
 
 
 # INAR(1) w/ randomization, get all 4!
-
-inar1.get.UL2 <- function(ARL0, lambda, beta, k, target="lambda", OUTPUT=FALSE, eps=1e-6, delta=1e-4, progress = NULL) {
-  if (target == "lambda") {
-    l1 <- lambda - eps
-    l2 <- lambda + eps
+inar1.get.UL2 <- function(ARL0, rho, beta, k, target="rho", OUTPUT=FALSE, eps=1e-6, delta=1e-4, progress = NULL) {
+  if (target == "rho") {
+    r1 <- rho - eps
+    r2 <- rho + eps
     b1 <- beta
     b2 <- beta
   }
   if (target == "beta") {
-    l1 <- lambda
-    l2 <- lambda
+    r1 <- rho
+    r2 <- rho
     b1 <- beta - eps
     b2 <- beta + eps
   }
-  LU  <- inar1.get.UL(ARL0, lambda, beta, k, OUTPUT=OUTPUT)
+  LU  <- inar1.get.UL(ARL0, rho, beta, k, OUTPUT=OUTPUT)
   L2  <- LU[1]
   U2  <- LU[2]
   if (L2 > 0) {
     L1  <- L2 - 1
-    U1  <- inar1.get.U(L1, ARL0, lambda, beta, k, OUTPUT=OUTPUT)
+    U1  <- inar1.get.U(L1, ARL0, rho, beta, k, OUTPUT=OUTPUT)
   } else {
     L1 <- 0
     U1 <- U2
@@ -272,18 +261,18 @@ inar1.get.UL2 <- function(ARL0, lambda, beta, k, target="lambda", OUTPUT=FALSE, 
         progress$inc(1 / total_steps, message = "Calculating limits", detail = paste("Elapsed time:", round(elapsed_time, 1), "seconds"))
       }
       
-      gL1  <- inar1.min.gL(L, U, ARL0, lambda, beta, k, OUTPUT=OUTPUT)
+      gL1  <- inar1.min.gL(L, U, ARL0, rho, beta, k, OUTPUT=OUTPUT)
       if (is.na(gL1)) next
-      gU1  <- inar1.get.gU(L, U, gL1, ARL0, lambda, beta, k)
-      lARL1 <- inar1.arl2(L, U, gL1, gU1, l1, b1, k)
-      rARL1 <- inar1.arl2(L, U, gL1, gU1, l2, b2, k)
+      gU1  <- inar1.get.gU(L, U, gL1, ARL0, rho, beta, k)
+      lARL1 <- inar1.arl2(L, U, gL1, gU1, r1, b1, k)
+      rARL1 <- inar1.arl2(L, U, gL1, gU1, r2, b2, k)
       dratio1 <- (rARL1 - lARL1) / (2 * eps)
       
-      gU2 <- inar1.min.gU(L, U, ARL0, lambda, beta, k, OUTPUT=OUTPUT)
+      gU2 <- inar1.min.gU(L, U, ARL0, rho, beta, k, OUTPUT=OUTPUT)
       if (is.na(gU2)) next
-      gL2 <- inar1.get.gL(L, U, gU2, ARL0, lambda, beta, k)
-      lARL2 <- inar1.arl2(L, U, gL2, gU2, l1, b1, k)
-      rARL2 <- inar1.arl2(L, U, gL2, gU2, l2, b2, k)
+      gL2 <- inar1.get.gL(L, U, gU2, ARL0, rho, beta, k)
+      lARL2 <- inar1.arl2(L, U, gL2, gU2, r1, b1, k)
+      rARL2 <- inar1.arl2(L, U, gL2, gU2, r2, b2, k)
       dratio2 <- (rARL2 - lARL2) / (2 * eps)
       
       if (OUTPUT) cat(paste("L =", L, ",\t U =", U, ",\tdr1 =", dratio1, ",\tdr2 =", dratio2, "\n"))
@@ -294,9 +283,9 @@ inar1.get.UL2 <- function(ARL0, lambda, beta, k, target="lambda", OUTPUT=FALSE, 
         dr.error <- 1
         while (gL.error > 1e-10 & dr.error > delta) {
           gL3 <- gL1 + (0 - dratio1) / (dratio2 - dratio1) * (gL2 - gL1)
-          gU3 <- inar1.get.gU(L, U, gL3, ARL0, lambda, beta, k)
-          lARL3 <- inar1.arl2(L, U, gL3, gU3, l1, b1, k)
-          rARL3 <- inar1.arl2(L, U, gL3, gU3, l2, b2, k)
+          gU3 <- inar1.get.gU(L, U, gL3, ARL0, rho, beta, k)
+          lARL3 <- inar1.arl2(L, U, gL3, gU3, r1, b1, k)
+          rARL3 <- inar1.arl2(L, U, gL3, gU3, r2, b2, k)
           dratio3 <- (rARL3 - lARL3) / (2 * eps)
           if (OUTPUT) cat(paste(gL3, "\t", dratio3, "\n"))
           gL1 <- gL2
@@ -319,24 +308,25 @@ inar1.get.UL2 <- function(ARL0, lambda, beta, k, target="lambda", OUTPUT=FALSE, 
 }
 
 
+#########################################
+#########################################
+#########################################
 
-###########################################################################################
-
-
+# Load necessary libraries
 library(shiny)
 library(ggplot2)
 library(shinycssloaders)
 
 # Define UI ----
 ui <- fluidPage(
-  titlePanel("ARL-unbiased Xn chart - M/Ek/1 queue"),
+  titlePanel("ARL-unbiased Xn-chart"),
   sidebarLayout(
     sidebarPanel(
-      sliderInput("lambda",
+      sliderInput("rho",
                   HTML("Target Traffic Intensity (&rho;0):"),
                   min = 0.01,
                   max = 0.99,
-                  value = 0.1,
+                  value = 0.9,
                   step = 0.01),
       sliderInput("ARL0",
                   "Target ARL:",
@@ -374,14 +364,14 @@ server <- function(input, output) {
     progress$set(message = "Calculating", value = 0)
     
     ARL0 <- input$ARL0
-    lambda0 <- input$lambda
+    rho0 <- input$rho
     k <- input$k
     
     # Increment the progress bar
     progress$inc(0.2, message = "Initializing variables", detail = "Elapsed time: calculating...")
     
     # Call the modified inar1.get.UL2 function with the progress object
-    LUg <- inar1.get.UL2(ARL0, lambda0, 0, k, OUTPUT = FALSE, progress = progress)
+    LUg <- inar1.get.UL2(ARL0, rho0, 0, k, OUTPUT = FALSE, progress = progress)
     
     # Store results in reactiveValues to use later in download
     rv$L3 <- LUg$L
@@ -391,22 +381,22 @@ server <- function(input, output) {
     
     progress$inc(0.3, message = "Generating plot data", detail = "Elapsed time: calculating...")
     
-    lambda <- seq(0.01, 0.99, by = 0.01)
-    LL3 <- sapply(lambda, function(l) inar1.arl2(rv$L3, rv$U3, rv$gL, rv$gU, l, 0, k))
+    rho <- seq(0.01, 0.99, by = 0.01)
+    LL3 <- sapply(rho, function(r) inar1.arl2(rv$L3, rv$U3, rv$gL, rv$gU, r, 0, k))
     
-    rv$lambda <- lambda  # Store lambda and LL3 for download
+    rv$rho <- rho  # Store rho and LL3 for download
     rv$LL3 <- LL3
     
     progress$inc(0.3, message = "Rendering plot", detail = "Elapsed time: calculating...")
     
-    # Determine legend position based on lambda0
-    legend_pos <- if (lambda0 > 0.5) "topleft" else "topright"
+    # Determine legend position based on rho0
+    legend_pos <- if (rho0 > 0.5) "topleft" else "topright"
     
     par(mar = c(5, 5, 4, 2) + 0.1)
     
     # Plot
-    plot(lambda, LL3, type = 'l', col = 'black', xlab = "ρ", ylab = expression("ARL : M/E"[5] * "/1 "  ~ X[n]))
-    abline(v=lambda0, h=ARL0, lty=4, col="grey")
+    plot(rho, LL3, type = 'l', col = 'black', xlab = "ρ", ylab = expression("ARL"))
+    abline(v=rho0, h=ARL0, lty=4, col="grey")
     legend(legend_pos, legend = c(paste("LCL =", 0), paste("UCL =", round(rv$U3, 4)), 
                                   paste("γL =", round(rv$gL, 6)), paste("γU =", round(rv$gU, 6))), 
            cex = 0.8, inset = c(0.025, 0.1))
@@ -421,22 +411,22 @@ server <- function(input, output) {
       png(file)
       
       # Reuse the cached plot data
-      lambda <- rv$lambda
+      rho <- rv$rho
       LL3 <- rv$LL3
       U3 <- rv$U3
       gL <- rv$gL
       gU <- rv$gU
       ARL0 <- input$ARL0
-      lambda0 <- input$lambda
+      rho0 <- input$rho
       
-      # Determine legend position based on lambda0
-      legend_pos <- if (lambda0 > 0.5) "topleft" else "topright"
+      # Determine legend position based on rho0
+      legend_pos <- if (rho0 > 0.5) "topleft" else "topright"
       
       par(mar = c(5, 5, 4, 2) + 0.1)
       
       # Plot for saving
-      plot(lambda, LL3, type = 'l', col = 'black', xlab = "ρ", ylab = expression("ARL : M/E"[5] * "/1 " ~ X[n]))
-      abline(v=lambda0, h=ARL0, lty=4, col="grey")
+      plot(rho, LL3, type = 'l', col = 'black', xlab = "ρ", ylab = expression("ARL"))
+      abline(v=rho0, h=ARL0, lty=4, col="grey")
       legend(legend_pos, legend = c(paste("LCL =", 0), paste("UCL =", round(U3, 4)), 
                                     paste("γL =", round(gL, 6)), paste("γU =", round(gU, 6))), 
              cex = 0.8, inset = c(0.025, 0.1))
@@ -448,4 +438,3 @@ server <- function(input, output) {
 
 # Run the app ----
 shinyApp(ui = ui, server = server)
-
